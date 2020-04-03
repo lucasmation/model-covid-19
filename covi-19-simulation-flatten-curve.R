@@ -1,3 +1,5 @@
+#Lucas Mation, 2020-mar
+
 install.packages("EpiModel", dependencies = TRUE)
 library(EpiModel)
 library(tidyverse)
@@ -5,6 +7,7 @@ library(data.table)
 
 
 #documentation
+#This similatior is just copied from this blog post
 #Great blog post: https://timchurches.github.io/blog/posts/2020-03-10-modelling-the-effects-of-public-health-interventions-on-covid-19-transmission-part-1/
 #another great one
 

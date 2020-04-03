@@ -1,77 +1,42 @@
-######################################################################
-# Function to compute the derivative of the ODE system
-#
-#  t - time
-#  y - current state vector of the ODE at time t
-#  parms - Parameter vector used by the ODE system
-#
-# Returns:
-#  list with one component being a vector of length two containing
-#  dS(t)/dt and dI(t)/dt
-######################################################################
-
-sir <- function(t, y, parms) {
-  beta <- parms[1]
-  gamma <- parms[2]
-  S <- y[1]
-  I <- y[2]
-  return(list(c(S = -beta * S * I, I = beta * S * I - gamma * I)))
-}
-
-# Population size 
-N <- 1e6 
-# Rate at which person stays in the infectious compartment (disease specific and tracing specific)
-gamma <- 1/5 
-# Infectious contact rate - beta = R0/N*gamma and when R0 \approx 2.25 then  2.25/N*gamma
-beta <- 4.5e-07 
-# R0 for the beta and gamma values
-R0 <- beta*N/gamma
-
-
-
-suppressPackageStartupMessages(library(deSolve))
-suppressPackageStartupMessages(library(tidyverse))
-
-# Grid where to evaluate
-max_time <- 150
-times <- seq(0, max_time, by=0.01)
-
-# Solve ODE system using Runge-Kutta numerical method.
-ode_solution <- rk4(y = c(N - 10, 10), times = times, func = sir, parms = c(beta, gamma)) %>%
-  as.data.frame() %>%
-  setNames(c("t", "S", "I")) %>%
-  mutate(beta = beta, gama = gamma, R0 = N * beta / gamma, s = S / N, i = I / N, type = "without_intervention")
-
-
-
-
-
-
-Segundo o Ministério da Saúde, país tem 14,8 mil leitos de UTIs adulto. 
-Pasta abriu licitação para contratar 2.000 novos leitos, abaixo dos 2.960 que associação diz serem necessários.
-
-stimates so far show that about 6% of people who have COVID-19 get critically sick. And about 1 in 4 of them may need a ventilator to help them breathe. But the picture is changing quickly as the infection continues to spread around the globe.
-
-
-
-
-
-library(tidyverse)
-
-
-
-
-
 install.packages("EpiModel", dependencies = TRUE)
 library(EpiModel)
+library(tidyverse)
+library(data.table)
+
 
 #documentation
 #Great blog post: https://timchurches.github.io/blog/posts/2020-03-10-modelling-the-effects-of-public-health-interventions-on-covid-19-transmission-part-1/
 #another great one
 
 
+#Ventilator need per infected calculation
+
+#1)https://sccm.org/Blog/March-2020/United-States-Resource-Availability-for-COVID-19
+# A recent AHA webinar on COVID-19 projected that 30% (96 million) of the U.S. population will test positive, 
+# with 5% (4.8 million) being hospitalized. Of the hospitalized patients, 40% (1.9 million) would be admitted 
+# to the ICU, and 50% of the ICU admissions (960,000) would require ventilatory support.
+# 0.3*0.05*0.4*0.5 = 0.003
+
+#2) WHO-china mission, 
+# https://www.who.int/publications-detail/report-of-the-who-china-joint-mission-on-coronavirus-disease-2019-(covid-19)
+#Most people infected with COVID-19 virus have mild disease and recover. Approximately 80% of laboratory confirmed 
+# patients have had mild to moderate disease, which includes non-pneumonia and pneumonia cases, 13.8% have severe 
+# disease (dyspnea, respiratory frequency â‰¥30/minute, blood oxygen saturation â‰¤93%, PaO2/FiO2 ratio <300, and/or
+#lung infiltrates >50% of the lung field within 24-48 hours) and 6.1% are critical (respiratory
+                                                                                                                                            failure, septic shock, and/or multiple organ dysfunction/failure)
+#3) Imperial College reports
+#https://www.imperial.ac.uk/mrc-global-infectious-disease-analysis/covid-19/
+#https://www.imperial.ac.uk/news/196496/coronavirus-pandemic-could-have-caused-40/
+#
+
+#Flatten the curve plotsÃ‡
+#https://static01.nyt.com/images/2020/03/22/science/11SCI-VIRUS-CURVE1/11SCI-VIRUS-TRACKER1-jumbo.jpg?quality=90&auto=webp
+
+
+
+
 control <- control.icm(type = "SIR"  ,  #model
-                       nsteps = 100,    #n periods
+                       nsteps = 200,    #n periods
                        nsims = 1)      #n simulations
 N <- 1000
 init <- init.icm(s.num = N-1, # susceptivble 
@@ -83,70 +48,29 @@ param <- param.icm(inf.prob = 0.05,
                    rec.rate = 1/20, 
                    a.rate  = 0   ,#arrival rate, no births or imigrants
                    ds.rate = 0   ,#deaths among succeptible (not infected)
-                   di.rate = 0.01,#deaths among infected
+                   di.rate = 0.01/13,#deaths among infected
                    dr.rate = 0    #deaths among recorvered
                    )  
 
 sim <- icm(param, init, control)
-
-icmN <- function(N){
-  init <- init.icm(s.num = N-1, # susceptivble 
-                   i.num = 1,   # infected
-                   r.num = 0)   # recorvered
-  
-  param <- param.icm(inf.prob = 0.05, 
-                     act.rate = 10, 
-                     rec.rate = 1/20, 
-                     a.rate  = 0   ,#arrival rate, no births or imigrants
-                     ds.rate = 0   ,#deaths among succeptible (not infected)
-                     di.rate = 0.01,#deaths among infected
-                     dr.rate = 0    #deaths among recorvered
-                     )  
-  
-  icm(param, init, control) %>% return
-  
-}
-
-sim <- icmN(10000)
-
-sim[[3]][[1]] %>% str
-
 plot(sim)
 
-
-remotes::install_github("olafmersmann/microbenchmark")
-install.packages('microbenchmark')
-library(microbenchmark)
-
-microbenchmark("10^3"  =  { sim10_3 <- icmN(10^3)},
-               "10^4"  =  { sim10_4 <- icmN(10^4)},
-               "10^5"  =  { sim10_5 <- icmN(10^5)},
-               "10^6"  =  { sim10_6 <- icmN(10^6)},
-               "10^7"  =  { sim10_7 <- icmN(10^7)},
-               times = 1
-               )
+sim_df <- sim[[3]] %>% bind_cols() %>% data.table
+names(sim_df) <- c('s.num','i.num','num','r.num','si.flow','ir.flow','ds.flow','di.flow','dr.flow','a.flow')
+sim_df[,sum(di.flow)]
+sim_df[,num.br:=num*210]
+sim_df[,i.num2.br:=i.num*210]
+sim_df[,i.hos.br:=i.num2.br*0.146]
+sim_df[,i.icu.br:=i.num2.br*0.025]
+sim_df[,t:=1:.N]
 
 
-microbenchmark("10^8"  =  { sim10_8 <- icmN(10^8)},
-               times = 1
-               )
-
-
-plot(sim10_3)
-plot(sim10_4)
-plot(sim10_5)
-plot(sim10_6)
-plot(sim10_7)
-
-b <- icmN(10000),
-               "pseudoinverse" = {
-                 b <- solve(t(X) %*% X) %*% t(X) %*% y
-               },
-               "linear system" = {
-                 b <- solve(t(X) %*% X, t(X) %*% y)
-               },
-               check = check_for_equal_coefs)
-
-
-
-
+sim_df %>% ggplot(aes(t,i.icu.br)) + geom_line(color='red', size=1) + 
+  geom_hline(yintercept = c(30),size=1) + 
+    theme_light() + ylab('milhares') + xlab('dias') +
+    annotate("text", x = 70, y = 2500, label = "Demanda por UTI sem medidas de",col="red",size=5.5) + 
+    annotate("text", x = 70, y = 2300, label = "contenÃ§Ã£o (2.5% dos infectados)",col="red",size=5.5) + 
+    annotate("text", x = 50, y = 160, label = "Capacidade do sistema",col="black",size=5.5) +
+  labs(caption='Brasil, Modelo SIR (R pacote EpiModel), R_0=2.24, supondo 30mil leitos de UTI',size=5) +
+  
+#Obs, em log os flatten the curve plots ate que fazem sentido.   scale_y_continuous(trans='log')
